@@ -62,8 +62,7 @@ async function getGrades(): Promise<Grade[]> {
     await page.waitForSelector('.examName');
     await page.waitForSelector('a[href="#legende"]');
     await page.waitForSelector('.grade.collapsed');
-    console.log('Analysing grades...')
-    //await timeout(5000);
+    console.log('Analysing grades...');
 
     const grades: Grade[] = [];
 
@@ -143,7 +142,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
     }
 
     const sendMessage = (message: string): void => {
-        const receiver = users.filter(u => u !== privateUserId);
+        const receiver = userIds.filter(u => u !== privateUserId);
 
         receiver.forEach((id) => {
             bot.api.sendMessage(id, message);
@@ -157,7 +156,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
     const runCheckGrades = async (): Promise<boolean> => {
         try {
             const result = await checkGrades(sendMessage, sendPrivateMessage);
-            sendPrivateMessage(`Heyho der QIS Bot hier! Der Check lief durch!`);
+            //sendPrivateMessage(`Heyho der QIS Bot hier! Der Check lief durch!`);
 
             return result;
         } catch (e) {
@@ -174,7 +173,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
         }, 15 * 60 * 1000); // 15 min
     }
 
-    const users: number[] = fs.existsSync('telegram_users.json') ? readFromFile('telegram_users.json') : [];
+    const userIds: number[] = fs.existsSync('telegram_users.json') ? readFromFile('telegram_users.json') : [];
     const privateUserId: number = parseInt(process.env.PRIVATE_USER_ID, 10);
 
     bot.command("start", (ctx) => {
@@ -185,13 +184,13 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
 
         logging('Command /start', ctx);
 
-        if (users.includes(ctx.from.id)) {
+        if (userIds.includes(ctx.from.id)) {
             ctx.reply('Heyho, schön, dass wir weiterhin zusammen warten! Keine Sorge du bist schon auf der Benachrichtigungsliste und bekommst sofort mit wenn eine neue Note eingetragen wird!');
             return;
         }
 
-        users.push(ctx.from.id);
-        writeToFile('telegram_users.json', users);
+        userIds.push(ctx.from.id);
+        writeToFile('telegram_users.json', userIds);
 
         ctx.reply('Heyho! Schön, dass wir zusammen auf deine Noten warten, ich prüfe alle 15 Minuten ob sich was getan hat. Lehne dich zurück ich sage dir Bescheid!', {
             reply_parameters: { message_id: ctx.msg.message_id },
