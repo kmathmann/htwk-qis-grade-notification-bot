@@ -1,0 +1,13 @@
+{
+  "name": "qis-grade-notification",
+  "packageManager": "yarn@4.1.0",
+  "devDependencies": {
+    "@types/node": "^20.11.21",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@types/node-fetch": "^2.6.11",
+    "grammy": "^1.21.1",
+    "puppeteer": "^22.3.0"
+  }
+}
