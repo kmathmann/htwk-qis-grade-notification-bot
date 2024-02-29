@@ -2,6 +2,9 @@ import puppeteer from 'puppeteer';
 import fs from 'node:fs';
 import { Bot, Context, InlineKeyboard } from "grammy";
 
+const log = console.log;
+console.log = (...args) => log(`[${(new Date).toISOString()}]`, ...args);
+
 type Grade = {
     course: string,
     examType: string,
