@@ -25,5 +25,30 @@ const browser = await puppeteer.launch({
 });
 ```
 
+### serviced
+#### setup
+1. Create `/lib/systemd/system/htwk-qis-grade-notification-bot.service`
+   ```
+   [Unit]
+    Description=htwk-qis-grade-notification-bot
+    Documentation=https://github.com/kmathmann/htwk-qis-grade-notification-bot
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=<username>
+    ExecStart=<path-to-node-executable> --env-file=.env <path-to-repository>/built/index.js
+    WorkingDirectory=<path-to-repository>
+    Restart=on-failure
+
+    [Install]
+    WantedBy=multi-user.target
+   ```
+2. Activate the service with `sudo systemctl enable htwk-qis-grade-notification-bot`
+3. Start the service with `sudo systemctl start htwk-qis-grade-notification-bot`
+
+#### Access logs
+To access the logs execute `journalctl -u htwk-qis-grade-notification-bot.service`
+
 ## Development
 `yarn tsc && node --env-file=.env built/index.js`
