@@ -108,7 +108,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
         const oldGrades = readFromFile<Grade[]>('grades.json');
         const changedGrades = grades.filter((grade) => {
             const oldGrade = oldGrades.find((oldGrade) => grade.course === oldGrade.course && grade.examType === oldGrade.examType);
-            return !oldGrade || grade.grade !== oldGrade.grade;
+            return (!oldGrade && grade.grade !== null) || (oldGrade && grade.grade !== oldGrade.grade);
         })
 
         console.log('changedGrades', changedGrades);
