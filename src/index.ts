@@ -72,7 +72,7 @@ async function getGrades(): Promise<Grade[]> {
     for (const row of rowList) {
         const course = await row.evaluate(el => (el.querySelector('.examName') as HTMLElement).innerText);
         const examType = await row.evaluate(el => (el.querySelector('a[href="#legende"]') as HTMLElement).innerText);
-        const grade = await row.evaluate(el => (el.querySelector('.grade.collapsed') as HTMLElement).innerText);
+        const grade = await row.evaluate(el => (el.querySelector('td:nth-of-type(4)') as HTMLElement).innerText);
 
         grades.push({
             course,
