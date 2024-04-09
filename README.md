@@ -37,7 +37,7 @@ const browser = await puppeteer.launch({
     [Service]
     Type=simple
     User=<username>
-    ExecStart=<path-to-node-executable> --env-file=.env <path-to-repository>/built/index.js
+    ExecStart=<path-to-node-executable> --env-file=.env built/index.js
     WorkingDirectory=<path-to-repository>
     Restart=on-failure
 
@@ -49,6 +49,23 @@ const browser = await puppeteer.launch({
 
 #### Access logs
 To access the logs execute `journalctl -u htwk-qis-grade-notification-bot.service`
+
+#### FNM (FastNodeManager)
+In combination with [fnm](https://github.com/Schniz/fnm) we need a script that initializes fnm before we can use `node`.
+
+Create the following `run-htwk-qis-grade-notification-bot.sh` file and make it executeable with `chmod +x run-htwk-qis-grade-notification-bot.sh`
+```bash
+#!/bin/bash
+export PATH="/home/<user>/.local/share/fnm:$PATH";
+eval "`fnm env --shell bash`";
+
+node --env-file=.env built/index.js;
+```
+
+In `/lib/systemd/system/htwk-qis-grade-notification-bot.service` we change the `ExecStart` line to:
+```
+ExecStart: <path-to-file>/run-htwk-qis-grade-notification-bot.sh
+```
 
 ## Development
 `yarn tsc && node --env-file=.env built/index.js`
