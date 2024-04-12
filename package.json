@@ -6,8 +6,10 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
+    "@types/jsdom": "^21.1.6",
     "@types/node-fetch": "^2.6.11",
+    "console-stamp": "^3.1.2",
     "grammy": "^1.21.1",
-    "puppeteer": "^22.3.0"
+    "jsdom": "^24.0.0"
   }
 }

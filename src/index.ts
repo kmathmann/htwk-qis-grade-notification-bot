@@ -1,9 +1,9 @@
-import puppeteer from 'puppeteer';
 import fs from 'node:fs';
-import { Bot, Context, InlineKeyboard } from "grammy";
+import { Bot, Context, InlineKeyboard } from 'grammy';
+import { JSDOM } from 'jsdom';
+import ConsoleStamp from 'console-stamp';
 
-const log = console.log;
-console.log = (...args) => log(`[${(new Date).toISOString()}]`, ...args);
+ConsoleStamp(console);
 
 type Grade = {
     course: string,
@@ -11,77 +11,79 @@ type Grade = {
     grade: string | null,
 };
 
-async function timeout(milliseconds: number): Promise<void> {
-    return new Promise<void>((resolve, reject) => setTimeout(() => resolve(), milliseconds));
-}
-
 async function getGrades(): Promise<Grade[]> {
 
+    let cookies = null;
 
-    // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    const loginResponse = await fetch('https://qisserver.htwk-leipzig.de/qisserver/rds?state=user&type=1&category=auth.login&startpage=portal.vm&topitem=functions&breadCrumbSource=portal', {
+        method: 'POST',
+        redirect: 'manual',
+        headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+        },
+        body: `username=${process.env.QIS_USERNAME}&password=${process.env.QIS_PASSWORD}&stg_role=S90&submit=Anmelden`,
+    });
 
-    // Navigate the page to a URL
-    await page.goto('https://qisserver.htwk-leipzig.de/');
+    if (loginResponse.status !== 302) {
+        console.error('fetch login failed', loginResponse);
+        return null;
+    }
 
-    // Set screen size
-    await page.setViewport({ width: 1080, height: 1024 });
-
-    console.log("Input login data")
-
-    const usernameInputSelector = '#username';
-    await page.waitForSelector(usernameInputSelector);
-    await page.type(usernameInputSelector, process.env.QIS_USERNAME);
-
-    const passwordInputSelector = '#password';
-    await page.waitForSelector(passwordInputSelector);
-    await page.type(passwordInputSelector, process.env.QIS_PASSWORD);
-
-    const roleSelector = 'label[for="stg_role_MA"]'
-    await page.waitForSelector(roleSelector);
-    await page.click(roleSelector);
-
-    console.log('logging in...')
-
-    // Wait and click on first result
-    const loginSelector = '.submit';
-    await page.waitForSelector(loginSelector);
-    await page.click(loginSelector);
-
-    console.log('Navigating to "Leistungsübersicht"')
-    const leistungsübersichtButton = await page.waitForSelector("text/Leistungsübersicht");
-    await page.$eval("text/Leistungsübersicht", (element) => (element as HTMLElement).click());
-
-    console.log('Navigating to "Leistungsübersicht Alle Semester"')
-    await page.waitForSelector("text/Studiengang 'Informatik'");
-    await page.$eval("text/Studiengang 'Informatik'", (element) => (element as HTMLElement).click());
+    cookies = loginResponse.headers.getSetCookie().map((entry) => entry.split(';')[0]).join(';');
 
 
-    await page.waitForSelector('tr.PL');
-    await page.waitForSelector('.examName');
-    await page.waitForSelector('a[href="#legende"]');
-    await page.waitForSelector('.grade.collapsed');
-    console.log('Analysing grades...');
+    const redirectResponse = await fetch(loginResponse.headers.get('location'), {
+        method: 'GET',
+        headers: {
+            'cookie': cookies,
+        },
+        body: null,
+    });
+
+    if (!redirectResponse.ok) {
+        console.log('fetch redirect failed', redirectResponse);
+        return null;
+    }
+
+    const html = await redirectResponse.text();
+
+    const asi = /asi=(?<asi>[^";]*)/.exec(html).groups?.asi
+
+    console.debug('asi: ', asi);
+
+    const gradesOverviewResponse = await fetch(`https://qisserver.htwk-leipzig.de/qisserver/rds?state=notenspiegelStudent&next=list.vm&nextdir=qispos/notenspiegel/student&menuid=notenspiegelStudent&createInfos=Y&struct=auswahlBaum&nodeID=auswahlBaum%7Cabschluss%3Aabschl%3D90%2Cstgnr%3D1%7Cstudiengang%3Astg%3DINM&expand=0&asi=${asi}`, {
+        method: 'GET',
+        headers: {
+            'cookie': cookies,
+        },
+        body: null,
+    });
+
+    if (!gradesOverviewResponse.ok) {
+        console.error('fetch gradesOverview failed', gradesOverviewResponse.status, await gradesOverviewResponse.text());
+        //fs.writeFileSync('debug.html', await gradesOverviewResponse.text());
+        return;
+    }
+
+    const dom = new JSDOM(await gradesOverviewResponse.text());
+    const { document } = dom.window;
 
     const grades: Grade[] = [];
 
-    const rowList = await page.$$('tr.PL');
-    const rowArray = Array.from(rowList);
+    const rowList = document.querySelectorAll('tr.PL');
 
     for (const row of rowList) {
-        const course = await row.evaluate(el => (el.querySelector('.examName') as HTMLElement).innerText);
-        const examType = await row.evaluate(el => (el.querySelector('a[href="#legende"]') as HTMLElement).innerText);
-        const grade = await row.evaluate(el => (el.querySelector('td:nth-of-type(4)') as HTMLElement).innerText);
+        const course = row.querySelector('.examName').textContent;
+        const examType = row.querySelector('a[href="#legende"]').textContent;
+        const grade = row.querySelector('td:nth-of-type(4)').textContent;
 
         grades.push({
             course,
             examType,
-            grade: grade.trim() === '-' ? null : grade,
+            grade: grade.trim() === '-' ? null : grade.trim(),
         });
     }
 
-    await browser.close();
     return grades;
 }
 
@@ -128,8 +130,8 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
     const bot = new Bot(process.env.TELEGRAM_BOT_SECRET);
 
     await bot.api.setMyCommands([
-        { command: "start", description: "Start the bot" },
-        { command: "check", description: "Prüfe auf Änderungen" },
+        { command: 'start', description: 'Start the bot' },
+        { command: 'check', description: 'Prüfe auf Änderungen' },
     ]);
 
     const logging = (message: string, ctx?: Context): void => {
@@ -176,7 +178,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
     const userIds: number[] = fs.existsSync('telegram_users.json') ? readFromFile('telegram_users.json') : [];
     const privateUserId: number = parseInt(process.env.PRIVATE_USER_ID, 10);
 
-    bot.command("start", (ctx) => {
+    bot.command('start', (ctx) => {
         if (ctx.from.id === privateUserId) {
             console.log('COMMAND /start: from private user: ', ctx.from.id);
             return;
@@ -198,7 +200,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
     });
 
 
-    bot.command("check", async (ctx) => {
+    bot.command('check', async (ctx) => {
         logging('Command /check', ctx);
 
         ctx.reply('Alright, ich checke ob sich was getan hat!', {
@@ -219,7 +221,7 @@ async function checkGrades(sendMessage: (message: string) => void, sendPrivateMe
         }
     });
 
-    bot.on("message", async (ctx) => {
+    bot.on('message', async (ctx) => {
         const message = ctx.message;
         logging(`Message received: ${ctx.message.text}`, ctx);
 
